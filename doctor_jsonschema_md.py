@@ -171,6 +171,10 @@ def jsonschema_to_markdown(schema_filepath,
 
     mdfile = None
     if markdown_outputfile is not None:
+
+        if markdown_outputfile == schema_filepath:
+            raise ValueError("Schema path and Markdown path are pointed to the same file!")
+
         if os.path.isfile(markdown_outputfile) and not overwrite_outputfile:
             logging.error("Markdown file [%s] exists. Remove or rerun script with --overwrite")
             return None
