@@ -3,6 +3,7 @@ import os
 import logging
 import time
 import sys
+import argparse
 
 def _mds(s, iscode=False):
     # P Is this json?
@@ -46,7 +47,7 @@ def _json2markdown(jsonelement, elementname, jsonparent, parentpath, indenttabs=
             md += "{}+ <a id=\"{}.{}\"></a> **{}**\n".format(indent, parentpath.lower(), elementname.lower(),
                                                            _mds(elementname))
 
-        if elementtype != "" and type(elementtype) == str:
+        if elementtype != "" and (type(elementtype) == str or type(elementtype) == unicode):
             md += "{}\t+ _Type:_ {}\n".format(indent, _mds(elementtype))
         elif elementtype != "" and type(elementtype) == list:
             md += "{}\t+ _Types:_ {}\n".format(indent, ",".join(map(lambda t: _mds(t), elementtype)))
@@ -89,12 +90,18 @@ def _json2markdown(jsonelement, elementname, jsonparent, parentpath, indenttabs=
         else:
             path = None
 
-        for property in jsonelement["properties"].keys():
+        for property in jsonelement.get("properties",{}).keys():
             md += _json2markdown(jsonelement["properties"][property], property, jsonelement, path, indenttabs + 1)
             md += "\n"
+
     elif elementtype in ["string",  "boolean", "number"]:
         pass
-
+    elif elementtype == "array":
+        md += "{}\t+ _Unique Items:_ {}\n".format(indent, jsonelement.get("uniqueItems", "False"))
+        md += "{}\t+ _Minimum Items:_ {}\n".format(indent, jsonelement.get("minItems", "NA"))
+        md += "{}\t+ _Maximum Items:_ {}\n".format(indent, jsonelement.get("maxItems", "NA"))
+        if "items" in jsonelement.keys():
+            md += _json2markdown(jsonelement["items"], "items", jsonelement, parentpath, indenttabs+1)
     else:
         # raise ValueError("Unknown JSON Schema type <%s>" % jsonelement["type"])
         pass
@@ -127,7 +134,11 @@ def _json_index_markdown(jsonelement, parentelement, elementname):
     return md
 
 
-def jsonschema_to_markdown(schema_filepath, markdown_outputfile=None, example_files=list(), logger=logging.getLogger()):
+def jsonschema_to_markdown(schema_filepath,
+                           markdown_outputfile=None,
+                           overwrite_outputfile=False,
+                           example_files=list(),
+                           logger=logging.getLogger()):
     """
     Creates a Markdown representation of a JSON schema.
 
@@ -157,6 +168,18 @@ def jsonschema_to_markdown(schema_filepath, markdown_outputfile=None, example_fi
                                                                                    schema.get("$schema", "(no schema)")
                                                                                    )
                          )
+
+    mdfile = None
+    if markdown_outputfile is not None:
+        if os.path.isfile(markdown_outputfile) and not overwrite_outputfile:
+            logging.error("Markdown file [%s] exists. Remove or rerun script with --overwrite")
+            return None
+        elif os.path.isfile(markdown_outputfile):
+            os.remove(markdown_outputfile)
+        elif not os.path.isdir(os.sep.join(markdown_outputfile.split(os.sep)[:-1])):
+            os.makedirs(os.sep.join(markdown_outputfile.split(os.sep)[:-1]))
+        mdfile = open(markdown_outputfile, "w+")
+
     mddict = dict()
     mddict["title"] = schema.get("title", "No Title")
     mddict["elements"] = dict()
@@ -212,10 +235,28 @@ def jsonschema_to_markdown(schema_filepath, markdown_outputfile=None, example_fi
                emd,
                rmd)
 
+    if mdfile is not None:
+        mdfile.write(md)
+        mdfile.close()
+
     return md
 
 
 if __name__ == "__main__":
-    md = jsonschema_to_markdown(
-        "/Users/pickard/projects/LinkNYC/register.citybridge.com/schemas/aws_bootstrap.configschema.json")
-    print md
+
+    parser = argparse.ArgumentParser(description='Bootstrap script to deploy register.citybridge.com in AWS')
+
+    parser.add_argument('--schemafile', type=str, required=True,
+                        help='Path to schema file to use')
+
+    parser.add_argument('--outfile', type=str, required=False, default=None,
+                        help='Path markdown file')
+
+    parser.add_argument('--overwrite', action='store_true', dest='overwrite', required=False,
+                        default=False,
+                        help='Overwrite markdown file if exists')
+
+    args = parser.parse_args()
+    md = jsonschema_to_markdown(args.schemafile, args.outfile, args.overwrite)
+    if args.outfile is None:
+        print md
