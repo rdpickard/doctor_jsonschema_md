@@ -105,16 +105,25 @@ def _json2markdown(jsonelement, elementname, jsonparent, parentpath, indenttabs=
 
 def _json_index_markdown(jsonelement, parentelement, elementname):
     md = ""
+
     if elementname is not None and elementname != "":
         md += "* [{}](#{})\n".format(_mds(elementname), elementname.lower())
 
-    if "type" in jsonelement.keys() and jsonelement["type"] == "object" and "properties" in jsonelement.keys():
+    if type(jsonelement) != dict:
+        pass
+    elif "type" in jsonelement.keys() and jsonelement["type"] == "object" and "properties" in jsonelement.keys():
         for prop in jsonelement["properties"]:
 
             if elementname is not None and elementname != "":
                 md += _json_index_markdown(jsonelement["properties"][prop], jsonelement, elementname + "." + prop)
             else:
                 md += _json_index_markdown(jsonelement["properties"][prop], jsonelement, prop)
+    elif False in map(lambda k: type(jsonelement[k]) == dict, jsonelement.keys()):
+        pass
+    elif type(jsonelement) == dict and "type" not in jsonelement.keys():
+        for k in jsonelement.keys():
+            md += _json_index_markdown(jsonelement[k], {}, k)
+
     return md
 
 
@@ -183,6 +192,9 @@ def jsonschema_to_markdown(schema_filepath, markdown_outputfile=None, example_fi
 ####ID: {}
 ####Properties Index:
 {}
+####References Index:
+{}
+
 ####Properties Detail:
 {}
 
@@ -196,6 +208,7 @@ def jsonschema_to_markdown(schema_filepath, markdown_outputfile=None, example_fi
                schema.get("$schema", "_None_"),
                schema.get("id", "_None_"),
                _json_index_markdown(schema, None, ""),
+               _json_index_markdown(schema['definitions'], None, ""),
                emd,
                rmd)
 
