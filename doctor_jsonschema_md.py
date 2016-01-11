@@ -2,126 +2,121 @@ import json
 import os
 import logging
 import time
-import re
+import sys
 
-_mds = lambda s: s.replace("_", "\_")
+def _mds(s, iscode=False):
+    # P Is this json?
 
-def _addref(referencepath, markdowndictionary, fulljson):
-
-    if re.match("^#/(.*)", referencepath):
-        g = re.match("^#/(.*)", referencepath).groups()
-        paths = g[0].split("/")
-        cjson = fulljson
-        for path in paths:
-            cjson = cjson[path]
-
-        rmd = _jelem2md(cjson,
-                        g[0],
-                        cjson["type"],
-                        markdowndictionary,
-                        fulljson)
-
-        rmd += "+ _Childelements_\n"
-        for propertykey in cjson["properties"].keys():
-            rmd += "\n"
-
-            rmd += _jelem2md(cjson["properties"][propertykey],
-                      "**"+propertykey+"**",
-                      cjson["properties"][propertykey]["type"],
-                      markdowndictionary,
-                      fulljson,
-                      indent="\t",
-                      header="+ ")
-
-        markdowndictionary["references"][g[0]] = rmd
-
-    pass
-
-def _jref2md(jsonelement, name, required=False):
-    md = "######"
-    if required:
-        md += "_{}_ (reference) required \n".format(_mds(name))
+    if iscode and type(s) == dict:
+        try:
+            js = json.dumps(s, sort_keys=True, indent=4, separators=(',', ': '))
+            return js
+        except:
+            return s
+            pass
+    elif iscode:
+        return s
     else:
-        md += "_{}_ (reference) optional \n".format(_mds(name))
-    if "$ref"  in jsonelement.keys():
-        md = "+ _Reference:_ {}\n".format(jsonelement.get("$ref","None"))
+        ms = s.replace("_", "\_")
 
-    return md
+    return ms
 
-def _jelem2md(jsonelement, name, etype, markdowndict, fulljson, required=False, indent="", header="######"):
+def _json2markdown(jsonelement, elementname, jsonparent, parentpath, indenttabs=0):
+    """
 
-    md = "{}{} {}\n".format(indent, header, _mds(name))
+    :param jsonelement:
+    :param jsonparent:
+    :param indenttabs:
+    :param markdowndict:
+    :return:
+    """
+    md = ""
+    elementtype = jsonelement.get("type", "")
 
-    indent=indent+indent
-    if type(etype) == list and type(etype) != str:
-        md += "{}+ _Types_:  \n".format(indent)
-        for et in etype:
-            if type(et) == str:
-                md += "{}     + {}\n".format(indent, et)
-            elif type(et) == dict and "$ref" in et.keys():
-                md += "{}     + {}\n".format(indent, et["$ref"])
-                _addref(et["$ref"], markdowndict, fulljson)
-    else:
-        md += "{}+ _Type_: {}  \n".format(indent, etype)
+    if elementtype == "" and "$ref" in jsonelement.keys():
+        elementtype = "[{}](#{})".format(jsonelement.get("$ref"), jsonelement.get("$ref").split("/")[-1])
 
-    md += "{}+ _Required_: {} \n".format(indent, "*True*" and required or "False")
+    indent = "".join(["\t"] * indenttabs)
 
-    if "$ref"  in jsonelement.keys():
-        md += "{}+ _Reference:_ {}\n".format(indent, jsonelement.get("$ref","None"))
+    if elementname is not None and elementname != "":
 
-    md += "{}+ _Description:_ {}\n".format(indent, _mds(jsonelement.get("description","None")))
-
-    if "enum" in jsonelement.keys():
-        md += "{}+ _Allowed values:_ {}\n".format(indent, ",".join(map(lambda o: "```"+o+"```", jsonelement["enum"])))
-    else:
-        md += "{}+ _Allowed values:_ Any\n".format(indent)
-
-    if "default" in jsonelement.keys():
-        md += "{}+ _Default_ ```{}```\n".format(indent, jsonelement["default"])
-
-    return md
-
-
-def _j2m(jsonelement, jsonelementpath, markdowndict, fulljson, example_files=list(), logger=logging.getLogger()):
-
-    if jsonelement.get("type", "derp").lower() == "object":
-
-        if jsonelementpath == "":
-            p = "[ROOT]"
+        if parentpath is None:
+            md += "{}+ <a id=\"{}\"></a> **{}**\n".format(indent, elementname.lower(), _mds(elementname))
         else:
-            p = jsonelementpath
-        omd = _jelem2md(jsonelement, p, jsonelement["type"], markdowndict, fulljson)
-        omd += "+ _Childelements_\n"
+            md += "{}+ <a id=\"{}.{}\"></a> **{}**\n".format(indent, parentpath.lower(), elementname.lower(),
+                                                           _mds(elementname))
 
-        for propertykey in jsonelement["properties"].keys():
-            if jsonelementpath == "":
-                propname=propertykey
-            else:
-                propname=jsonelementpath+"."+propertykey
-            omd += "     + [{}](#{})\n".format(_mds(propertykey), propname)
-            omd += "\n"
+        if elementtype != "" and type(elementtype) == str:
+            md += "{}\t+ _Type:_ {}\n".format(indent, _mds(elementtype))
+        elif elementtype != "" and type(elementtype) == list:
+            md += "{}\t+ _Types:_ {}\n".format(indent, ",".join(map(lambda t: _mds(t), elementtype)))
+        elif jsonelement.get("oneOf", None) is not None:
+            md += "{}\t+ _Type one of:_ {}\n".format(indent, _mds(elementtype))
 
-            _j2m(jsonelement["properties"][propertykey], propname, markdowndict, fulljson)
-        if jsonelementpath != "":
-            markdowndict["elements"][jsonelementpath] = omd
+            for et in jsonelement["oneOf"]:
+                if type(et) == str:
+                    md += "{}\t\t+ {}\n".format(indent, et)
+                elif type(et) == dict and "$ref" in et.keys():
+                    md += "{}\t\t+ [{}](#{})\n".format(indent, et["$ref"], et["$ref"].split("/")[-1])
 
-    elif "$ref" in jsonelement.keys():
-        markdowndict["elements"][jsonelementpath] = _jref2md(jsonelement, jsonelementpath)
-    elif jsonelement.get("type", "derp").lower() in ["string", "array", "boolean", "number"]:
-        markdowndict["elements"][jsonelementpath] = _jelem2md(jsonelement,
-                                                              jsonelementpath,
-                                                              jsonelement["type"],
-                                                              markdowndict,
-                                                              fulljson)
-    elif jsonelement.get("oneOf", None) is not None:
-        markdowndict["elements"][jsonelementpath] = _jelem2md(jsonelement,
-                                                              jsonelementpath,
-                                                              jsonelement["oneOf"],
-                                                              markdowndict,
-                                                              fulljson)
+        if jsonparent is not None and "required" in jsonparent.keys() and elementname in jsonparent["required"]:
+            md += "{}\t+ _Required:_ True\n".format(indent)
+        else:
+            md += "{}\t+ _Required:_ False\n".format(indent)
+
+        md += "{}\t+ _Description:_ {}\n".format(indent, jsonelement.get("description", "None"))
+
+        if "enum" in jsonelement.keys():
+            md += "{}\t+ _Allowed values:_ {}\n".format(indent,
+                                                      ",".join(map(lambda o: "```" + o + "```", jsonelement["enum"])))
+        else:
+            md += "{}\t+ _Allowed values:_ Any\n".format(indent)
+
+        if "default" in jsonelement.keys():
+            d = _mds(jsonelement["default"], True)
+            md += "{}\t+ _Default:_ ```{}```\n".format(indent, d)
+
+    if elementtype == "object":
+        if elementname is not None and elementname != "":
+            md += "{}\t+ _Children_:\n\n".format(indent)
+        else:
+            md += "{}+ \n\n".format(indent)
+
+        if parentpath is not None and parentpath != "":
+            path = parentpath + "." + elementname
+        elif elementname is not None:
+            path = elementname
+        else:
+            path = None
+
+        for property in jsonelement["properties"].keys():
+            md += _json2markdown(jsonelement["properties"][property], property, jsonelement, path, indenttabs + 1)
+            md += "\n"
+    elif elementtype in ["string",  "boolean", "number"]:
+        pass
 
     else:
-        raise ValueError("Unknown JSON Schema type <%s>" % jsonelement["type"])
+        # raise ValueError("Unknown JSON Schema type <%s>" % jsonelement["type"])
+        pass
+
+    md += "\n"
+    return md
+
+
+def _json_index_markdown(jsonelement, parentelement, elementname):
+    md = ""
+    if elementname is not None and elementname != "":
+        md += "* [{}](#{})\n".format(_mds(elementname), elementname.lower())
+
+    if "type" in jsonelement.keys() and jsonelement["type"] == "object" and "properties" in jsonelement.keys():
+        for prop in jsonelement["properties"]:
+
+            if elementname is not None and elementname != "":
+                md += _json_index_markdown(jsonelement["properties"][prop], jsonelement, elementname + "." + prop)
+            else:
+                md += _json_index_markdown(jsonelement["properties"][prop], jsonelement, prop)
+    return md
+
 
 def jsonschema_to_markdown(schema_filepath, markdown_outputfile=None, example_files=list(), logger=logging.getLogger()):
     """
@@ -146,38 +141,68 @@ def jsonschema_to_markdown(schema_filepath, markdown_outputfile=None, example_fi
         logger.error(msg)
         raise ve
 
-
-    if schema.get("type","derp").lower() != 'object':
+    if schema.get("type", "derp").lower() != 'object':
         raise ValueError("File [{}] does not seem to be JSON a json schema".format(schema_filepath))
-    if schema.get("$schema", "derp") !=  "http://json-schema.org/draft-04/schema#":
+    if schema.get("$schema", "derp") != "http://json-schema.org/draft-04/schema#":
         raise ValueError("File [{}] is not a supported schema version <{}>".format(schema_filepath,
                                                                                    schema.get("$schema", "(no schema)")
                                                                                    )
                          )
     mddict = dict()
-    mddict["title"] = schema.get("title","No Title")
+    mddict["title"] = schema.get("title", "No Title")
     mddict["elements"] = dict()
     mddict["references"] = dict()
 
-    _j2m(jsonelement=schema, jsonelementpath="", markdowndict=mddict, fulljson=schema, example_files=example_files)
+    emd = _json2markdown(jsonelement=schema,
+                         elementname=None,
+                         jsonparent=None,
+                         parentpath=None,
+                         indenttabs=0)
+
+    rmd = ""
+    stds=["type", "id", "description", "title", "$schema", "properties", "required"]
+    for skey in filter(lambda k: k not in stds and type(schema[k]) == dict, schema.keys()):
+        for rkey in schema[skey].keys():
+            rmd += _json2markdown(jsonelement=schema[skey][rkey],
+                                 elementname=rkey,
+                                 jsonparent=None,
+                                 parentpath=None,
+                                 indenttabs=0)
+
 
     md = """
 #*{}* schema documentation
-Generated from file ```{}``` on {} by [doctor\_jsonschema\_md](https://github.com/rdpickard/doctor_jsonschema_md)
-
-##Elements
+#####Generated by [doctor\_jsonschema\_md](https://github.com/rdpickard/doctor_jsonschema_md)
+---
+#####Source file: ```{}```
+#####Documentations generation date: {}
+---
+####Title: {}
+####Description: {}
+####Schema: {}
+####ID: {}
+####Properties Index:
+{}
+####Properties Detail:
 {}
 
-##References
+####Object References
 {}
     """.format(_mds(schema_filepath.split("/")[-1]),
                schema_filepath,
                time.strftime("%Y-%m-%d %H:%M"),
-               "\n".join(map( lambda e: mddict["elements"][e], sorted(mddict["elements"]))),
-               "\n".join(map( lambda e: mddict["references"][e], sorted(mddict["references"]))))
+               schema.get("title", "None"),
+               schema.get("description", "_None_"),
+               schema.get("$schema", "_None_"),
+               schema.get("id", "_None_"),
+               _json_index_markdown(schema, None, ""),
+               emd,
+               rmd)
 
     return md
 
+
 if __name__ == "__main__":
-  md = jsonschema_to_markdown("/Users/pickard/projects/LinkNYC/register.citybridge.com/schemas/aws_bootstrap.configschema.json")
-  print md
+    md = jsonschema_to_markdown(
+        "/Users/pickard/projects/LinkNYC/register.citybridge.com/schemas/aws_bootstrap.configschema.json")
+    print md
