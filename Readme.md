@@ -1,5 +1,5 @@
 #Doctor JSONschema, M.D. 
---
+
 A utility script to generate documentation in [Markdown](https://daringfireball.net/projects/markdown/syntax) format 
 from [JSON schema](http://json-schema.org/) files. 
 
