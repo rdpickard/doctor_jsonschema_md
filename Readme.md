@@ -6,12 +6,14 @@ from [JSON schema](http://json-schema.org/) files.
 ![ss](docs/media/transform.png)
 
 Well written JSONschemas contain a lot of contextual information about the document they are intended to validate. 
-Being able to generate documentation from them automagically from schemas reduces the repetative work of craft 
+Being able to generate documentation automagically from schemas eliminates the repetative work of crafting
 long stretches of Markdown by hand and reduces the chance of drift between documentation and implementation. 
 
 While the utopia of JSON as a markup for all things [has not emerged](http://www.redbook.io/pdf/ch1-background.pdf) from
-the rubble of it's predicesors, I belive it does have a lot of utility for describing small, self contained elements 
-such as configuration files and data exchange for RESTful APIs.
+the rubble of it's [predicesors](http://c2.com/cgi/wiki?XmlSucks), [I](https://github.com/rdpickard) belive it does
+have a lot of utility for describing small, self contained elements such as configuration files and data exchange for 
+RESTful APIs. JSONschemas are a concise way to communicate the form of a JSON object and a method for programaitc
+validation. 
 
 The name is a reference to a joke between a [friend](https://github.com/timmattison) and I about developers calling 
 themselves Engineers, for about a week he asked everyone to call him a Medical Doctor of Java. 
