@@ -33,7 +33,7 @@ The ```doctor_jsonschema_md``` has three command line switches
 + _schemafile_ The file path to the schema to generate Markdown for
 + _outfile_ (optional) The file path for the generated Markdown file. If it outfile is not specified, the generated 
 Markdown data will be send to stdout
-+ _overwrite_ (optional) Setting this switch will overwrite the file specified by _outfile_ if it exists
++ _overwrite_ (optional) Setting this switch will overwrite the contents of file specified by _outfile_, if it exists
 
 ###Examples
 
