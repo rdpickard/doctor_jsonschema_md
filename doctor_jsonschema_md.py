@@ -2,10 +2,17 @@ import json
 import os
 import logging
 import time
-import sys
 import argparse
 
+
 def _mds(s, iscode=False):
+    """
+    Convert a string to a 'markdown' string by escaping control and syntax highlighting characters
+
+    :param s: The string to escape
+    :param iscode: The string appears in a (tick)(tick)code(tick)(tick) block
+    :return: The escaped string
+    """
     # P Is this json?
 
     if iscode and type(s) == dict:
@@ -22,14 +29,18 @@ def _mds(s, iscode=False):
 
     return ms
 
+
 def _json2markdown(jsonelement, elementname, jsonparent, parentpath, indenttabs=0):
     """
+    Generate Markdown text from a JSON Schema element. If the schema element is an object, the objects propoerties
+    will be included in the Markdown text
 
-    :param jsonelement:
-    :param jsonparent:
-    :param indenttabs:
-    :param markdowndict:
-    :return:
+    :param jsonelement: The schema element as a JSON dict
+    :param elementname: The name of the element, "" or None if it is the 'root' element
+    :param jsonparent: The element's partent element, if any
+    :param parentpath: A dotted string representing the lineage of the element root.grand_parent.parent
+    :param indenttabs: Number of Tabs to indent the Markdown outline equal to recursive depth of the calls
+    :return: A string of Markdown text representing the provided element and it's descendant propertied
     """
     md = ""
     elementtype = jsonelement.get("type", "")
@@ -45,7 +56,7 @@ def _json2markdown(jsonelement, elementname, jsonparent, parentpath, indenttabs=
             md += "{}+ <a id=\"{}\"></a> **{}**\n".format(indent, elementname.lower(), _mds(elementname))
         else:
             md += "{}+ <a id=\"{}.{}\"></a> **{}**\n".format(indent, parentpath.lower(), elementname.lower(),
-                                                           _mds(elementname))
+                                                             _mds(elementname))
 
         if elementtype != "" and (type(elementtype) == str or type(elementtype) == unicode):
             md += "{}\t+ _Type:_ {}\n".format(indent, _mds(elementtype))
@@ -69,7 +80,7 @@ def _json2markdown(jsonelement, elementname, jsonparent, parentpath, indenttabs=
 
         if "enum" in jsonelement.keys():
             md += "{}\t+ _Allowed values:_ {}\n".format(indent,
-                                                      ",".join(map(lambda o: "```" + o + "```", jsonelement["enum"])))
+                                                        ",".join(map(lambda o: "```" + o + "```", jsonelement["enum"])))
         else:
             md += "{}\t+ _Allowed values:_ Any\n".format(indent)
 
@@ -90,18 +101,18 @@ def _json2markdown(jsonelement, elementname, jsonparent, parentpath, indenttabs=
         else:
             path = None
 
-        for property in jsonelement.get("properties",{}).keys():
-            md += _json2markdown(jsonelement["properties"][property], property, jsonelement, path, indenttabs + 1)
+        for prop in jsonelement.get("properties", {}).keys():
+            md += _json2markdown(jsonelement["properties"][prop], prop, jsonelement, path, indenttabs + 1)
             md += "\n"
 
-    elif elementtype in ["string",  "boolean", "number"]:
+    elif elementtype in ["string", "boolean", "number"]:
         pass
     elif elementtype == "array":
         md += "{}\t+ _Unique Items:_ {}\n".format(indent, jsonelement.get("uniqueItems", "False"))
         md += "{}\t+ _Minimum Items:_ {}\n".format(indent, jsonelement.get("minItems", "NA"))
         md += "{}\t+ _Maximum Items:_ {}\n".format(indent, jsonelement.get("maxItems", "NA"))
         if "items" in jsonelement.keys():
-            md += _json2markdown(jsonelement["items"], "items", jsonelement, parentpath, indenttabs+1)
+            md += _json2markdown(jsonelement["items"], "items", jsonelement, parentpath, indenttabs + 1)
     else:
         # raise ValueError("Unknown JSON Schema type <%s>" % jsonelement["type"])
         pass
@@ -110,7 +121,16 @@ def _json2markdown(jsonelement, elementname, jsonparent, parentpath, indenttabs=
     return md
 
 
-def _json_index_markdown(jsonelement, parentelement, elementname):
+def _json_index_markdown(jsonelement, elementname):
+    """
+    Creates Markdown text 'index' of all of the properties of the specified json element. The text is a list of
+    each element name and it's descendants. Each item in the list includes a link to a local hyper text anchor on
+    the same page to the details of the item.
+
+    :param jsonelement: The element to generate an index for
+    :param elementname: The name of the element, "" or None if the root
+    :return: Markdown text as string
+    """
     md = ""
 
     if elementname is not None and elementname != "":
@@ -122,14 +142,14 @@ def _json_index_markdown(jsonelement, parentelement, elementname):
         for prop in jsonelement["properties"]:
 
             if elementname is not None and elementname != "":
-                md += _json_index_markdown(jsonelement["properties"][prop], jsonelement, elementname + "." + prop)
+                md += _json_index_markdown(jsonelement["properties"][prop],  elementname + "." + prop)
             else:
-                md += _json_index_markdown(jsonelement["properties"][prop], jsonelement, prop)
-    elif False in map(lambda k: type(jsonelement[k]) == dict, jsonelement.keys()):
+                md += _json_index_markdown(jsonelement["properties"][prop], prop)
+    elif False in map(lambda ek: type(jsonelement[ek]) == dict, jsonelement.keys()):
         pass
     elif type(jsonelement) == dict and "type" not in jsonelement.keys():
         for k in jsonelement.keys():
-            md += _json_index_markdown(jsonelement[k], {}, k)
+            md += _json_index_markdown(jsonelement[k], k)
 
     return md
 
@@ -137,14 +157,13 @@ def _json_index_markdown(jsonelement, parentelement, elementname):
 def jsonschema_to_markdown(schema_filepath,
                            markdown_outputfile=None,
                            overwrite_outputfile=False,
-                           example_files=list(),
                            logger=logging.getLogger()):
     """
     Creates a Markdown representation of a JSON schema.
 
     :param schema_filepath: Path to the schema to generate MD from
     :param markdown_outputfile: (optional A file to write the generated MD to
-    :param example_files: (optional) A list of paths to files of JSON that implement the specfiied schema
+    :param overwrite_outputfile: Whether or not to overwrite an existing Markdown file
     :param logger: (optional) where to log messages to. defaults to basic logger
     :return: generated markdown as a string
     """
@@ -190,21 +209,20 @@ def jsonschema_to_markdown(schema_filepath,
     mddict["references"] = dict()
 
     emd = _json2markdown(jsonelement=schema,
-                         elementname=None,
+                         elementname="",
                          jsonparent=None,
                          parentpath=None,
                          indenttabs=0)
 
     rmd = ""
-    stds=["type", "id", "description", "title", "$schema", "properties", "required"]
+    stds = ["type", "id", "description", "title", "$schema", "properties", "required"]
     for skey in filter(lambda k: k not in stds and type(schema[k]) == dict, schema.keys()):
         for rkey in schema[skey].keys():
             rmd += _json2markdown(jsonelement=schema[skey][rkey],
-                                 elementname=rkey,
-                                 jsonparent=None,
-                                 parentpath=None,
-                                 indenttabs=0)
-
+                                  elementname=rkey,
+                                  jsonparent=None,
+                                  parentpath=None,
+                                  indenttabs=0)
 
     md = """
 #*{}* schema documentation
@@ -234,8 +252,8 @@ def jsonschema_to_markdown(schema_filepath,
                schema.get("description", "_None_"),
                schema.get("$schema", "_None_"),
                schema.get("id", "_None_"),
-               _json_index_markdown(schema, None, ""),
-               _json_index_markdown(schema['definitions'], None, ""),
+               _json_index_markdown(schema, ""),
+               _json_index_markdown(schema['definitions'], ""),
                emd,
                rmd)
 
@@ -261,6 +279,6 @@ if __name__ == "__main__":
                         help='Overwrite markdown file if exists')
 
     args = parser.parse_args()
-    md = jsonschema_to_markdown(args.schemafile, args.outfile, args.overwrite)
+    mdc = jsonschema_to_markdown(args.schemafile, args.outfile, args.overwrite)
     if args.outfile is None:
-        print md
+        print mdc
