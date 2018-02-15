@@ -3,6 +3,7 @@
 A utility script to generate documentation in [Markdown](https://daringfireball.net/projects/markdown/syntax) format 
 from [JSON schema](http://json-schema.org/) files. 
 
+I have pretty much abandoned documenting JSON schemas in this way in favor of [SWAGGER 2.0](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md). But maybe this will still be useful to someone.
 ![ss](docs/media/transform.png)
 
 Well written JSONschemas contain a lot of contextual information about the document they are intended to validate. 
