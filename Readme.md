@@ -1,4 +1,4 @@
-#Doctor JSONschema, M.D. 
+# Doctor JSONschema, M.D.
 
 A utility script to generate documentation in [Markdown](https://daringfireball.net/projects/markdown/syntax) format 
 from [JSON schema](http://json-schema.org/) files. 
@@ -18,7 +18,7 @@ validation.
 The name is a reference to a joke between a [friend](https://github.com/timmattison) and I about developers calling 
 themselves Engineers, for about a week he asked everyone to call him a Medical Doctor of Java. 
 
-###Requirements
+### Requirements
 Python 2.7 must be installed.
 
 The required Python support modules can be installed using pip
@@ -27,7 +27,7 @@ The required Python support modules can be installed using pip
 pip install -r requirements.txt
 ```
 
-###Running
+### Running
 The ```doctor_jsonschema_md``` has three command line switches
 
 + _schemafile_ The file path to the schema to generate Markdown for
@@ -35,7 +35,7 @@ The ```doctor_jsonschema_md``` has three command line switches
 Markdown data will be send to stdout
 + _overwrite_ (optional) Setting this switch will overwrite the contents of file specified by _outfile_, if it exists
 
-###Examples
+### Examples
 
 + Generate MD for file ```test_schemas/test_schema_1.json``` and out put to terminal 
 
@@ -51,13 +51,13 @@ Markdown data will be send to stdout
 	--outfile test_schemas/test_schema_1.json.md -
 	```
 	
-###Example Output
+### Example Output
 
 + From screen shot above [JSON schema](test_schemas/test_schema_1.json) / [Markdown](test_schemas/test_schema_1.json.md)
 
 + From another project [JSON schema](test_schemas/test_schema_2.json) / [Markdown](test_schemas/test_schema_2.json.md)
 
-###TODOs
+### TODOs
 
 + The entire JSONschema standard is not implemented. Need to support the entire language set
 
